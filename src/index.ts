@@ -1,145 +1,126 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { basename } from "path";
 import { config } from "dotenv";
-import { v4, validate } from "uuid";
-import {
-  getReqData,
-  validatePostRequestBody,
-  validatePutRequestBody,
-} from "./utils/index";
-import { responseNotFound } from "./responses/index";
+import { validate } from "uuid";
+import { getReqData, HTTP_STATUS_CODES } from "./utils/index";
+import { responseHandler } from "./handlers/index";
+import { Controller } from "./controllers/index";
 import { IUser } from "./types/IUser";
 
 config();
-
+const controller = new Controller();
 const PORT: number = parseInt(process.env.PORT as string, 10);
 
-const users: IUser[] = [];
-const server = createServer(
+export const server = createServer(
   async (request: IncomingMessage, response: ServerResponse) => {
     const url = request.url;
     const method = request.method;
     const id: string | undefined = basename(url as string);
-    const user: IUser | undefined = users.find((user) => user.id === id);
-
-    switch (method) {
-      case "GET":
-        if (url === "/api/users" || url === "/api/users/") {
-          response.writeHead(200, { "Content-Type": "application/json" });
-          response.write(JSON.stringify(users));
-          response.end();
-        } else if (url?.startsWith("/api/users") && validate(id)) {
-          if (user) {
-            response.writeHead(200, { "Content-Type": "application/json" });
-            response.write(JSON.stringify(user));
-            response.end();
+    try {
+      switch (method) {
+        case "GET":
+          if (url === "/api/users" || url === "/api/users/") {
+            const users: IUser[] = await controller.getUsers();
+            responseHandler(response, HTTP_STATUS_CODES.OK, users);
+          } else if (url?.startsWith("/api/users") && validate(id)) {
+            try {
+              const user = await controller.getUser(id);
+              responseHandler(response, HTTP_STATUS_CODES.OK, user);
+            } catch (error) {
+              responseHandler(
+                response,
+                HTTP_STATUS_CODES.NOT_FOUND,
+                error as object
+              );
+            }
+          } else if (url?.startsWith("/api/users") && !validate(id)) {
+            responseHandler(response, HTTP_STATUS_CODES.BAD_REQUEST, {
+              message: "Invalid id",
+            });
           } else {
-            response.writeHead(404, { "Content-Type": "application/json" });
-            response.write(
-              JSON.stringify({
-                error: "No user with such id",
-              })
-            );
-            response.end();
+            responseHandler(response, HTTP_STATUS_CODES.NOT_FOUND, {
+              message: "Route Not Found",
+            });
           }
-        } else if (url?.startsWith("/api/users") && !validate(id)) {
-          response.writeHead(400, { "Content-Type": "application/json" });
-          response.write(
-            JSON.stringify({
-              error: "Invalid id",
-            })
-          );
-          response.end();
-        } else {
-          responseNotFound(response);
-        }
-        break;
-      case "POST":
-        if (url === "/api/users" || url === "/api/users/") {
-          const userData = JSON.parse((await getReqData(request)) as string);
-          if (validatePostRequestBody(userData)) {
-            const newUser: IUser = {
-              id: v4(),
-              ...userData,
-            };
-            users.push(newUser);
-            response.writeHead(201, { "Content-Type": "application/json" });
-            response.write(JSON.stringify(newUser));
-            response.end();
+          break;
+        case "POST":
+          if (url === "/api/users" || url === "/api/users/") {
+            const userData = JSON.parse((await getReqData(request)) as string);
+            try {
+              const newUser = await controller.createUser(userData);
+              responseHandler(response, HTTP_STATUS_CODES.CREATED, newUser);
+            } catch (error) {
+              responseHandler(
+                response,
+                HTTP_STATUS_CODES.BAD_REQUEST,
+                error as object
+              );
+            }
           } else {
-            response.writeHead(400, { "Content-Type": "application/json" });
-            response.write(
-              JSON.stringify({
-                error: "Missing reuired fields or invalid body field types",
-              })
-            );
-            response.end();
+            responseHandler(response, HTTP_STATUS_CODES.NOT_FOUND, {
+              message: "Route Not Found",
+            });
           }
-        }
 
-        break;
-      case "PUT":
-        if (url?.startsWith("/api/users") && validate(id)) {
-          const userData = JSON.parse((await getReqData(request)) as string);
-          if (validatePutRequestBody(userData)) {
-            users[users.indexOf(user as IUser)].username =
-              userData.username || user?.username;
-            users[users.indexOf(user as IUser)].age = userData.age || user?.age;
-            users[users.indexOf(user as IUser)].hobbies =
-              userData.hobbies || user?.hobbies;
-
-            response.writeHead(201, { "Content-Type": "application/json" });
-            response.write(JSON.stringify(user));
-            response.end();
+          break;
+        case "PUT":
+          if (url?.startsWith("/api/users") && validate(id)) {
+            const userData = JSON.parse((await getReqData(request)) as string);
+            try {
+              const updateUser = await controller.updateUser(id, userData);
+              responseHandler(response, HTTP_STATUS_CODES.ACCEPTED, updateUser);
+            } catch (error) {
+              responseHandler(
+                response,
+                HTTP_STATUS_CODES.BAD_REQUEST,
+                error as object
+              );
+            }
+          } else if (url?.startsWith("/api/users") && !validate(id)) {
+            responseHandler(response, HTTP_STATUS_CODES.BAD_REQUEST, {
+              message: "Invalid id",
+            });
           } else {
-            response.writeHead(400, { "Content-Type": "application/json" });
-            response.write(
-              JSON.stringify({ error: "missing required body field" })
-            );
-            response.end();
+            responseHandler(response, HTTP_STATUS_CODES.NOT_FOUND, {
+              message: "Route Not Found",
+            });
           }
-        } else if (url?.startsWith("/api/users") && !validate(id)) {
-          response.writeHead(400, { "Content-Type": "application/json" });
-          response.write(
-            JSON.stringify({
-              error: "Invalid id",
-            })
-          );
-          response.end();
-        } else {
-          responseNotFound(response);
-        }
-        break;
-      case "DELETE":
-        if (url?.startsWith("/api/users") && validate(id)) {
-          if (user) {
-            users.splice(users.indexOf(user));
-            response.writeHead(204, { "Content-Type": "application/json" });
-            response.end();
+          break;
+        case "DELETE":
+          if (url?.startsWith("/api/users") && validate(id)) {
+            try {
+              await controller.deleteUser(id);
+              response.writeHead(HTTP_STATUS_CODES.NO_CONTENT, {
+                "Content-Type": "application/json",
+              });
+              response.end();
+            } catch (error) {
+              responseHandler(
+                response,
+                HTTP_STATUS_CODES.BAD_REQUEST,
+                error as object
+              );
+            }
+          } else if (url?.startsWith("/api/users") && !validate(id)) {
+            responseHandler(response, HTTP_STATUS_CODES.BAD_REQUEST, {
+              message: "Invalid id",
+            });
           } else {
-            response.writeHead(404, { "Content-Type": "application/json" });
-            response.write(
-              JSON.stringify({
-                error: "No user with such id",
-              })
-            );
-            response.end();
+            responseHandler(response, HTTP_STATUS_CODES.NOT_FOUND, {
+              message: "Route Not Found",
+            });
           }
-        } else if (url?.startsWith("/api/users") && !validate(id)) {
-          response.writeHead(400, { "Content-Type": "application/json" });
-          response.write(
-            JSON.stringify({
-              error: "Invalid id",
-            })
-          );
-          response.end();
-        } else {
-          responseNotFound(response);
-        }
-        break;
+          break;
 
-      default:
-        responseNotFound(response);
+        default:
+          responseHandler(response, HTTP_STATUS_CODES.NOT_FOUND, {
+            message: "Route Not Found",
+          });
+      }
+    } catch {
+      responseHandler(response, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR, {
+        message: "Internal Server Error",
+      });
     }
   }
 );
