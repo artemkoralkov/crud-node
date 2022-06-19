@@ -9,7 +9,7 @@ import { IUser } from "./types/IUser";
 
 config();
 const controller = new Controller();
-const PORT: number = parseInt(process.env.PORT as string, 10);
+const PORT: number = parseInt(process.env.PORT as string, 10) || 3000;
 
 export const server = createServer(
   async (request: IncomingMessage, response: ServerResponse) => {
@@ -68,7 +68,7 @@ export const server = createServer(
             const userData = JSON.parse((await getReqData(request)) as string);
             try {
               const updateUser = await controller.updateUser(id, userData);
-              responseHandler(response, HTTP_STATUS_CODES.ACCEPTED, updateUser);
+              responseHandler(response, HTTP_STATUS_CODES.OK, updateUser);
             } catch (error) {
               responseHandler(
                 response,
