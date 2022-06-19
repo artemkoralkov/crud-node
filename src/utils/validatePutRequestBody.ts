@@ -1,6 +1,6 @@
-import { IUser } from "../types/IUser";
+import { IUserData } from "../types/IUser";
 
-export function validatePutRequestBody(userData: IUser): boolean {
+export function validatePutRequestBody(userData: IUserData): boolean {
   return (
     ("username" in userData && typeof userData.username === "string") ||
     ("age" in userData && typeof userData.age === "number") ||

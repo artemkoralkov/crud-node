@@ -1,6 +1,6 @@
-import { IUser } from "../types/IUser";
+import { IUserData } from "../types/IUser";
 
-export function validatePostRequestBody(userData: IUser): boolean {
+export function validatePostRequestBody(userData: IUserData): boolean {
   return (
     "username" in userData &&
     typeof userData.username === "string" &&
