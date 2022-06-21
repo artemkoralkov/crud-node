@@ -26,6 +26,6 @@ Simple CRUD API using in-memory database underneath.
 ## Endpoints
 - **GET** `api/users` is used to get all persons
 - **GET** `api/users/${userId}` is used to get person with `userId`
-- **POST ** `api/users` is used to create record about new user and store it in database
-- **PUT ** `api/users/${userId}` is used to update existing user
-- **DELETE  ** `api/users/${userId}` is used to delete existing user from database
+- **POST** `api/users` is used to create record about new user and store it in database
+- **PUT** `api/users/${userId}` is used to update existing user
+- **DELETE** `api/users/${userId}` is used to delete existing user from database
